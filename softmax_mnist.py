@@ -56,6 +56,6 @@ def main(csv_path, output_csv):
     save_softmax_probabilities(model, X_test, output_csv)
 
 
-csv_path = r"C:\Users\jacob\Desktop\mnist_train.csv"
-output_csv = r"C:\Users\jacob\Desktop\output.csv"
+csv_path = r"PUT PATH HERE"
+output_csv = r"PUT PATH HERE"
 main(csv_path, output_csv)
