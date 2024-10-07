@@ -1,0 +1,3 @@
+Dataset can be found here: https://github.com/rois-codh/kmnist/blob/master/README.md
+The models use the Kuzushiji-49 datasets stored in the 4 npz files
+The files are divided by training and testing images and traing and testing labels
