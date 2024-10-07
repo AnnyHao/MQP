@@ -1,76 +1,88 @@
-  # Import necessary libraries
-import tensorflow as tf
-from tensorflow.keras import datasets, layers, models
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torchvision
+import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
-import numpy as np
-# Load the CIFAR-10 dataset
-(train_images, train_labels), (test_images, test_labels) = datasets.cifar10.load_data()
+import time
 
-def rgb_to_grayscale(images):
-    return np.dot(images[...,:3], [0.2989, 0.5870, 0.1140])
-# Normalize pixel values between 0 and 1
-# train_images, test_images = train_images / 255.0, test_images / 255.0
+# Define the transformation to normalize the data
+transform = transforms.Compose([
+    transforms.Grayscale(num_output_channels=1),  # This converts RGB to grayscale
+    transforms.ToTensor(),
+    transforms.Normalize((0.5,), (0.5,))
+])
 
-train_images = rgb_to_grayscale(train_images)
-test_images = rgb_to_grayscale(test_images)
-print(train_images.shape)
-# \/
+# Load the MNIST dataset
+trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=True)
 
-# Class names in English
-class_names = ['Airplane', 'Automobile', 'Bird', 'Cat', 'Deer', 'Dog', 'Frog', 'Horse', 'Ship', 'Truck']
-# Build the CNN model
-model = models.Sequential()#54,
-model.add(layers.Conv2D(90, (3, 3), activation='relu', input_shape=(32, 32, 1)))
-model.add(layers.MaxPooling2D((2, 2)))
-model.add(layers.Conv2D(180, (3, 3), activation='relu'))
-model.add(layers.MaxPooling2D((2, 2)))
-model.add(layers.Conv2D(360, (3, 3), activation='relu'))
+testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
+testloader = torch.utils.data.DataLoader(testset, batch_size=64, shuffle=False)
 
-# Add fully connected layers
-model.add(layers.Flatten())
-model.add(layers.Dense(240 , activation='relu'))
-model.add(layers.Dense(10, activation='softmax'))  # Using softmax for multi-class classification
+# Define the 3-layer CNN model
+class ThreeLayerCNN(nn.Module):
+    def __init__(self):
+        super(ThreeLayerCNN, self).__init__()
+        # First convolutional layer
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=64, kernel_size=5, stride=1, padding=2)
+        self.relu = nn.ReLU()
+        self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        # Second convolutional layer
+        self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=5, stride=1, padding=2)
+        # Third convolutional layer
+        self.conv3 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=5, stride=1, padding=2)
+        # Fully connected layers
+        self.fc1 = nn.Linear(256 * 4 * 4, 512)  # Adjust input size based on the output size of conv layers
+        self.fc2 = nn.Linear(512, 10)
 
-# Print the model summary
-model.summary()
+    def forward(self, x):
+        x = self.relu(self.conv1(x))
+        x = self.maxpool(x)
+        x = self.relu(self.conv2(x))
+        x = self.maxpool(x)
+        x = self.relu(self.conv3(x))
+        x = self.maxpool(x)
+        #print(x.shape)
+        x = x.view(x.size(0), -1)  # Flatten the tensor
+        x = self.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
 
-# Compile the model
-model.compile(optimizer='adam',
-              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),  # Softmax outputs probabilities, so from_logits=False
-              metrics=['accuracy'])
+# Initialize the model, loss function, and optimizer
+model = ThreeLayerCNN()
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # Train the model
-history = model.fit(train_images, train_labels, epochs=10, validation_data=(test_images, test_labels))
+def train_model(model, trainloader, criterion, optimizer, epochs=5):
+    model.train()
+    for epoch in range(epochs):
+        start_time = time.time()
+        running_loss = 0.0
+        for images, labels in trainloader:
+            optimizer.zero_grad()
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            running_loss += loss.item()
+        print(f"Epoch {epoch+1}/{epochs}, Loss: {running_loss/len(trainloader)}")
+        print("--- %s seconds ---" % (time.time() - start_time))
 
-# Plot training results
-plt.plot(history.history['accuracy'], label='Training Accuracy')
-plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
-plt.xlabel('Epoch')
-plt.ylabel('Accuracy')
-plt.ylim([0, 1])
-plt.legend(loc='lower right')
-plt.show()
+# Evaluate the model
+def evaluate_model(model, testloader):
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels in testloader:
+            outputs = model(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    print(f'Accuracy: {100 * correct / total}%')
 
-# Evaluate the model on the test dataset
-test_loss, test_acc = model.evaluate(test_images, test_labels, verbose=2)
-print(f"Test accuracy: {test_acc}")
-
-# Example: Display the first image in the test set and predict its label
-# import numpy as np
-#
-# plt.figure(figsize=(2, 2))
-# plt.imshow(test_images[0])
-# plt.title("Actual: " + class_names[test_labels[0][0]])
-
-# Predict the label
-predictions = model.predict(test_images)
-predicted_label = np.argmax(predictions[0])
-
-# Print the predicted label
-print(f"Predicted label: {class_names[predicted_label]}")
-
-
-plt.figure(figsize=(2, 2))
-plt.imshow(test_images[0])
-plt.show()
-plt.title("Actual: " + class_names[test_labels[0][0]])
+# Run training and evaluation
+train_model(model, trainloader, criterion, optimizer, epochs=16)
+evaluate_model(model, testloader)
