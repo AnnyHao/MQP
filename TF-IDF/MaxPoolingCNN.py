@@ -38,13 +38,11 @@ def apply_max_pooling(dataset, kernel_size=4, stride=4):
 # 5,4 6x6 88.21
 # 6,5 5x5 82.69
 # 7,7 4x4 67.96
-# 数据预处理
 transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.5,), (0.5,))
 ])
 
-# 加载并处理数据集
 train_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
 test_dataset = datasets.MNIST(root='./data', train=False, transform=transform)
 
@@ -54,12 +52,10 @@ test_dataset = apply_max_pooling(test_dataset)
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
-# 初始化模型、优化器和损失函数
 model = SimpleCNN()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 criterion = nn.CrossEntropyLoss()
 
-# 训练模型
 def train_model(model, train_loader, criterion, optimizer, num_epochs=10):
     model.train()
     for epoch in range(num_epochs):
@@ -71,7 +67,6 @@ def train_model(model, train_loader, criterion, optimizer, num_epochs=10):
             optimizer.step()
         print(f'Epoch {epoch+1} complete.')
 
-# 测试模型
 def test_model(model, test_loader):
     model.eval()
     correct = 0
